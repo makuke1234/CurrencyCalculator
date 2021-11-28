@@ -5,26 +5,27 @@
 
 #include <CommCtrl.h>
 
-static const wchar_t * s_errMsgs[UIErr_num_of_items] = {
+static const wchar_t * s_errMsgs[CCErr_num_of_items] = {
 	L"Unknown error occurred!",
 	L"Error initialising window class!",
 	L"Error creating window!",
-	L"Invalid handle!"
+	L"Invalid handle!",
+	L"Error loading currencies' exchange rate data!"
 };
 
-void dispErr(UIErr_e err)
+void dispErr(CCErr_e err)
 {
 	dispErrWnd(err, NULL, NULL);
 }
-void dispErrTitle(UIErr_e err, LPCWSTR title)
+void dispErrTitle(CCErr_e err, LPCWSTR title)
 {
 	dispErrWnd(err, title, NULL);
 }
-void dispErrWnd(UIErr_e err, LPCWSTR title, HWND hwnd)
+void dispErrWnd(CCErr_e err, LPCWSTR title, HWND hwnd)
 {
-	if (err >= UIErr_num_of_items)
+	if (err >= CCErr_num_of_items)
 	{
-		err = UIErr_unknown;
+		err = CCErr_unknown;
 	}
 	if (title == NULL)
 	{
@@ -36,9 +37,9 @@ void dispErrWnd(UIErr_e err, LPCWSTR title, HWND hwnd)
 Window_t wnd = {
 	.dpi       = { 96, 96 },
 	.sizeRect  = { 0, 0, 340, 280 },
-	.minSizeNeutral      = { 340, 280 },
-	.elemSpacingN  = { 8, 8 },
-	.elemSizeN     = { 80, 22 },
+	.minSizeN     = { 340, 280 },
+	.elemSpacingN = { 8, 8 },
+	.elemSizeN    = { 80, 22 },
 	
 	.infoLabel1N = { 0, 0, 130, 22 },
 	.infoLabel2N = { 0, 0, 130, 22 },
@@ -56,14 +57,14 @@ Window_t wnd = {
 
 void initResources()
 {
-	rsc_loadSelf(wnd.hInst, wnd.className, MAX_RSCSTRING, IDS_APPCLASSNAME, L"CurrencyCalcClass");
-	rsc_loadSelf(wnd.hInst, wnd.appName,   MAX_RSCSTRING, IDS_APPNAME,      L"CurrencyCalculator");
+	rsc_loadSelf(wnd.className, MAX_RSCSTRING, IDS_APPCLASSNAME, L"CurrencyCalcClass");
+	rsc_loadSelf(wnd.appName,   MAX_RSCSTRING, IDS_APPNAME,      L"CurrencyCalculator");
 	
-	rsc_loadSelf(wnd.hInst, wnd.iLabel1Str, MAX_RSCSTRING, IDS_INFOLABEL1, L"Rates' timeliness:");
-	rsc_loadSelf(wnd.hInst, wnd.iLabel2Str, MAX_RSCSTRING, IDS_INFOLABEL2, L"ECB rate:");
-	rsc_loadSelf(wnd.hInst, wnd.iLabel3Str, MAX_RSCSTRING, IDS_INFOLABEL3, L"Enter amount:");
+	rsc_loadSelf(wnd.iLabel1Str, MAX_RSCSTRING, IDS_INFOLABEL1, L"Rates' timeliness:");
+	rsc_loadSelf(wnd.iLabel2Str, MAX_RSCSTRING, IDS_INFOLABEL2, L"ECB rate:");
+	rsc_loadSelf(wnd.iLabel3Str, MAX_RSCSTRING, IDS_INFOLABEL3, L"Enter amount:");
 	
-	rsc_loadSelf(wnd.hInst, wnd.oLabelStr, MAX_RSCSTRING, IDS_OUTLABEL, L"Value:");
+	rsc_loadSelf(wnd.oLabelStr, MAX_RSCSTRING, IDS_OUTLABEL, L"Value:");
 }
 
 static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
@@ -99,7 +100,7 @@ bool initWindow(RECT sizeRect)
 		wnd.sizeRect = sizeRect;
 	}
 
-	wnd.hwnd = CreateWindowExW(
+	CreateWindowExW(
 		0,
 		wnd.className,
 		wnd.appName,
@@ -149,7 +150,7 @@ int msgLoop()
 	{
 		if (ret == -1)
 		{
-			dispErr(UIErr_handle);
+			dispErr(CCErr_handle);
 			return -1;
 		}
 		TranslateMessage(&msg);
@@ -220,6 +221,11 @@ void calcWndBorder()
 
 static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+	if (wnd.hwnd == NULL && msg != WM_CREATE)
+	{
+		return DefWindowProcW(hwnd, msg, wp, lp);
+	}
+
 	switch (msg)
 	{
 	case WM_PAINT:
@@ -232,7 +238,7 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		onSizing(wp, (RECT *)lp);
 		return TRUE;
 	case WM_SIZE:
-		onSize(wp, (int)LOWORD(lp), (int)HIWORD(wp));
+		onSize((int)LOWORD(lp), (int)HIWORD(wp));
 		break;
 	case WM_DPICHANGED:
 		onDpiChange((int)LOWORD(wp), (int)HIWORD(wp), (RECT *)lp);
@@ -249,7 +255,8 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		PostQuitMessage(0);
 		break;
 	case WM_CREATE:
-		return onCreate(hwnd);
+		wnd.hwnd = hwnd;
+		return onCreate();
 	default:
 		return DefWindowProcW(hwnd, msg, wp, lp);
 	}
@@ -273,7 +280,7 @@ void onCommand(WPARAM wp)
 	{
 	case CBN_SELCHANGE:
 	{
-		const int index = SendMessageW(wnd.hwnd, CB_GETCURSEL, 0, 0);
+		const int index = (int)SendMessageW(wnd.hwnd, CB_GETCURSEL, 0, 0);
 		if (index == CB_ERR)
 		{
 			return;
@@ -282,7 +289,7 @@ void onCommand(WPARAM wp)
 		switch (LOWORD(wp))
 		{
 		case WndDropDown_from:
-			dispErr(UIErr_unknown);
+			dispErr(CCErr_unknown);
 			break;
 		case WndDropDown_to:
 			break;
@@ -290,7 +297,7 @@ void onCommand(WPARAM wp)
 	}
 	}
 }
-void onSize(WPARAM wp, int newx, int newy)
+void onSize(int newx, int newy)
 {
 	wnd.sizeRect.right = newx;
 	wnd.sizeRect.bottom = newy;
@@ -298,8 +305,8 @@ void onSize(WPARAM wp, int newx, int newy)
 }
 void onSizing(WPARAM wp, RECT * wndRect)
 {
-	int minx = dpi_adjustDipx(wnd.minSizeNeutral.x, 0) + wnd.border.x;
-	int miny = dpi_adjustDipx(wnd.minSizeNeutral.y, 0) + wnd.border.y;
+	int minx = dpi_adjustDipx(wnd.minSizeN.x, 0) + wnd.border.x;
+	int miny = dpi_adjustDipx(wnd.minSizeN.y, 0) + wnd.border.y;
 	// X-coordinate
 	switch (wp)
 	{
@@ -369,10 +376,9 @@ void onDpiChange(int newdx, int newdy, RECT * wndRect)
 	calcWndBorder();
 }
 
-LRESULT onCreate(HWND hwnd)
+LRESULT onCreate()
 {
-	wnd.hwnd = hwnd;
-	dpi_get(hwnd, &wnd.dpi.x, &wnd.dpi.y);
+	dpi_get(wnd.hwnd, &wnd.dpi.x, &wnd.dpi.y);
 
 	// Create buttons
 	RECT tr;
@@ -389,7 +395,7 @@ LRESULT onCreate(HWND hwnd)
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
-		hwnd,
+		wnd.hwnd,
 		NULL,
 		wnd.hInst,
 		NULL
@@ -407,7 +413,7 @@ LRESULT onCreate(HWND hwnd)
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
-		hwnd,
+		wnd.hwnd,
 		(HMENU)WndDropDown_from,
 		wnd.hInst,
 		NULL
@@ -424,7 +430,7 @@ LRESULT onCreate(HWND hwnd)
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
-		hwnd,
+		wnd.hwnd,
 		(HMENU)WndDropDown_to,
 		wnd.hInst,
 		NULL
@@ -441,7 +447,7 @@ LRESULT onCreate(HWND hwnd)
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
-		hwnd,
+		wnd.hwnd,
 		NULL,
 		wnd.hInst,
 		NULL
@@ -458,7 +464,7 @@ LRESULT onCreate(HWND hwnd)
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
-		hwnd,
+		wnd.hwnd,
 		NULL,
 		wnd.hInst,
 		NULL
@@ -503,10 +509,12 @@ LRESULT onCreate(HWND hwnd)
 	}
 
 	// Set test strings
-	SendMessageW(wnd.handles[1], CB_ADDSTRING, 0, (LPARAM)L"test1");
-	SendMessageW(wnd.handles[1], CB_ADDSTRING, 0, (LPARAM)L"test2");
-	SendMessageW(wnd.handles[3], CB_ADDSTRING, 0, (LPARAM)L"test1");
-	SendMessageW(wnd.handles[3], CB_ADDSTRING, 0, (LPARAM)L"test2");
+	for (size_t i = 0; i < currencyData.n_currencies; ++i)
+	{
+		LPCWSTR currencyName = currencyData.currencies[i].wName;
+		SendMessageW(wnd.handles[1], CB_ADDSTRING, 0, (LPARAM)currencyName);
+		SendMessageW(wnd.handles[3], CB_ADDSTRING, 0, (LPARAM)currencyName);
+	}
 
 	return 0;
 }

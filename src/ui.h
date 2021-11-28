@@ -1,28 +1,25 @@
 #ifndef UI_H
 #define UI_H
 
-#define WIN32_LEAN_AND_MEAN
-#define WIN32_EXTRA_LEAN
-#define NOMINMAX
-#include <Windows.h>
-
 #include <stdbool.h>
 
+#include "winapi.h"
 #include "currencies.h"
 
-typedef enum UIErr
+typedef enum CCErr
 {
-	UIErr_unknown,
-	UIErr_wndClass,
-	UIErr_window,
-	UIErr_handle,
+	CCErr_unknown,
+	CCErr_wndClass,
+	CCErr_window,
+	CCErr_handle,
+	CCErr_currencies,
 
-	UIErr_num_of_items
-} UIErr_e;
+	CCErr_num_of_items
+} CCErr_e;
 
-void dispErr(UIErr_e err);
-void dispErrTitle(UIErr_e err, LPCWSTR title);
-void dispErrWnd(UIErr_e err, LPCWSTR title, HWND hwnd);
+void dispErr(CCErr_e err);
+void dispErrTitle(CCErr_e err, LPCWSTR title);
+void dispErrWnd(CCErr_e err, LPCWSTR title, HWND hwnd);
 
 typedef struct DPI
 {
@@ -51,7 +48,7 @@ typedef struct Window
 	DPI_t dpi;
 
 	RECT sizeRect;
-	POINT minSizeNeutral;
+	POINT minSizeN;
 	POINT border;
 
 	POINT elemSpacingN, elemSizeN;
@@ -69,8 +66,6 @@ typedef struct Window
 	int fontHeight;
 	HFONT font;
 
-	CurrenciesData_t data;
-
 } Window_t;
 
 extern Window_t wnd;
@@ -84,11 +79,11 @@ void calcWndElems();
 void calcWndBorder();
 
 // wndProc wrapper functions
-void onPaint(HWND hwnd);
+void onPaint();
 void onCommand(WPARAM wp);
-void onSize(WPARAM wp, int newx, int newy);
+void onSize(int newx, int newy);
 void onSizing(WPARAM wp, RECT * wndRect);
 void onDpiChange(int newdx, int newdy, RECT * wndRect);
-LRESULT onCreate(HWND hwnd);
+LRESULT onCreate();
 
 #endif

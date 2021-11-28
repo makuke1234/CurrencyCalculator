@@ -1,9 +1,8 @@
 ﻿#define _WIN32_WINNT 0x0500
 #define WINVER 0x0500
 #define _WIN32_IE 0x0500
-#include <windows.h>
-
 #include "resource.h"
+
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
 
 // Exe-faili versiooniinformatsioon
@@ -53,5 +52,7 @@ BEGIN
 	IDS_OUTLABEL	L"Väärtus:"
 
 END
+
+IDF_CACERT_PEM RCDATA "../lib/curl-ca-bundle.crt"
 
 //IDI_APPLICATION ICON "kasutajaliides.ico"

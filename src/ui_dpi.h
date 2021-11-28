@@ -1,7 +1,9 @@
 #ifndef UI_DPI_H
 #define UI_DPI_H
 
-#include "ui.h"
+#include "winapi.h"
+
+#include <stdbool.h>
 
 
 void dpi_loadFunctions();
