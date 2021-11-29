@@ -4,6 +4,7 @@
 #include "resource.h"
 
 #include <CommCtrl.h>
+#include <stdio.h>
 
 static const wchar_t * s_errMsgs[CCErr_num_of_items] = {
 	L"Unknown error occurred!",
@@ -264,14 +265,55 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	return 0;
 }
 
+#define MAX_PAINT_STR 256
+
 void onPaint(HWND hwnd)
 {
 	PAINTSTRUCT ps;
 	HDC hdc = BeginPaint(hwnd, &ps);
+	// Start painting
+
+	// Select font
+	SelectObject(hdc, wnd.font);
+	// Set transparent background mode
+	SetBkMode(hdc, TRANSPARENT);
 
 
 
+	wchar_t tempStr[MAX_PAINT_STR];
+	int len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s %hu.%hu.%hu", wnd.iLabel1Str, currencyData.date.day, currencyData.date.mon, currencyData.date.year);
+	RECT tempRect = wnd.infoLabel1N;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	DrawTextW(hdc, tempStr, len, &tempRect, DT_LEFT | DT_NOCLIP);
 
+
+
+	double rate = currencyData.currencies[wnd.selectCur1].etalonValue /
+	              currencyData.currencies[wnd.selectCur2].etalonValue;
+	len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s %.4f", wnd.iLabel2Str, rate);
+	tempRect = wnd.infoLabel2N;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	DrawTextW(hdc, tempStr, len, &tempRect, DT_LEFT | DT_NOCLIP);
+
+
+	tempRect = wnd.infoLabel3N;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	DrawTextW(hdc, wnd.iLabel3Str, -1, &tempRect, DT_LEFT | DT_NOCLIP);
+
+
+	if (wnd.hasValidInputValue)
+	{
+		len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s %.2f", wnd.oLabelStr, rate * wnd.textInputValue);
+	}
+	else
+	{
+		len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s NaN", wnd.oLabelStr);
+	}
+	tempRect = wnd.outLabelN;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	DrawTextW(hdc, tempStr, len, &tempRect, DT_LEFT | DT_NOCLIP);
+
+	// End painting
 	EndPaint(hwnd, &ps);
 }
 void onCommand(WPARAM wp)
@@ -288,13 +330,23 @@ void onCommand(WPARAM wp)
 		// Get control menu
 		switch (LOWORD(wp))
 		{
-		case WndDropDown_from:
-			dispErr(CCErr_unknown);
+		case WndMenuDropDown_from:
+			wnd.selectCur1 = index;
 			break;
-		case WndDropDown_to:
+		case WndMenuDropDown_to:
+			wnd.selectCur2 = index;
 			break;
 		}
+		// Redraw
+		InvalidateRect(wnd.hwnd, NULL, TRUE);
+		break;
 	}
+	case EN_CHANGE:
+		if (LOWORD(wp) == WndMenuTextInput)
+		{
+			dispErr(0);
+		}
+		break;
 	}
 }
 void onSize(int newx, int newy)
@@ -408,13 +460,13 @@ LRESULT onCreate()
 		0,
 		L"combobox",
 		L"",
-		WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
+		WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
 		tr.left,
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
 		wnd.hwnd,
-		(HMENU)WndDropDown_from,
+		(HMENU)WndMenuDropDown_from,
 		wnd.hInst,
 		NULL
 	);
@@ -424,14 +476,14 @@ LRESULT onCreate()
 	wnd.handles[2] = CreateWindowExW(
 		0,
 		L"static",
-		L"->",
-		WS_CHILD | WS_VISIBLE,
+		L"➤",
+		WS_CHILD | WS_VISIBLE | DT_CENTER,
 		tr.left,
 		tr.top,
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
 		wnd.hwnd,
-		(HMENU)WndDropDown_to,
+		(HMENU)WndMenuDropDown_to,
 		wnd.hInst,
 		NULL
 	);
@@ -442,7 +494,7 @@ LRESULT onCreate()
 		0,
 		L"combobox",
 		L"",
-		WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
+		WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
 		tr.left,
 		tr.top,
 		tr.right  - tr.left,
@@ -465,7 +517,7 @@ LRESULT onCreate()
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
 		wnd.hwnd,
-		NULL,
+		(HMENU)WndMenuTextInput,
 		wnd.hInst,
 		NULL
 	);
@@ -515,6 +567,10 @@ LRESULT onCreate()
 		SendMessageW(wnd.handles[1], CB_ADDSTRING, 0, (LPARAM)currencyName);
 		SendMessageW(wnd.handles[3], CB_ADDSTRING, 0, (LPARAM)currencyName);
 	}
+
+	// Set index to 0
+	SendMessageW(wnd.handles[1], CB_SETCURSEL, 0, 0);
+	SendMessageW(wnd.handles[3], CB_SETCURSEL, 0, 0);
 
 	return 0;
 }

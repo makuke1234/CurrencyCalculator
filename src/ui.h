@@ -31,10 +31,11 @@ typedef struct DPI
 
 typedef wchar_t RscString_t[MAX_RSCSTRING];
 
-enum WndDropDown
+enum WndMenu
 {
-	WndDropDown_from = 1,
-	WndDropDown_to
+	WndMenuDropDown_from = 1,
+	WndMenuDropDown_to,
+	WndMenuTextInput
 };
 
 typedef struct Window
@@ -65,6 +66,10 @@ typedef struct Window
 
 	int fontHeight;
 	HFONT font;
+
+	int selectCur1, selectCur2;
+	bool hasValidInputValue;
+	double textInputValue;
 
 } Window_t;
 

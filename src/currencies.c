@@ -163,14 +163,15 @@ static inline bool s_readCurrencyFile(CurrenciesData_t * restrict currencies)
 
 	// Date date loaded
 
-	currencies->currencies = realloc(currencies->currencies, sizeof(Currency_t) * numCur);
+	numCur += currencies->n_currencies;
+	currencies->currencies = realloc(currencies->currencies, sizeof(Currency_t) * (numCur));
 	if (currencies->currencies == NULL)
 	{
 		fclose(file);
 		return false;
 	}
 
-	for (uint32_t i = 0; i < numCur; ++i)
+	for (uint32_t i = currencies->n_currencies; i < numCur; ++i)
 	{
 		// Read all other lines
 		char buf[32];
@@ -204,17 +205,19 @@ static inline bool s_writeCurrencyFile(const CurrenciesData_t * const restrict c
 		return false;
 	}
 
+	// Account for EUR at the beginning
+
 	// Write date
 	fprintf(
 		file,
 		"%u %.2hu.%.2hu.%hu\n",
-		currencies->n_currencies,
+		currencies->n_currencies - 1,
 		currencies->date.day,
 		currencies->date.mon,
 		currencies->date.year
 	);
 
-	for (uint32_t i = 0; i < currencies->n_currencies; ++i)
+	for (uint32_t i = 1; i < currencies->n_currencies; ++i)
 	{
 		const Currency_t * const restrict currency = &currencies->currencies[i];
 		char buf[32] = { 0 };
@@ -401,8 +404,9 @@ static inline bool s_parseCurWebpage(
 
 	// Get currency data
 	
+
 	// Get to the line that says class="currency"
-	for (uint32_t i = 0; ; ++i)
+	for (uint32_t i = currencies->n_currencies; ; ++i)
 	{
 		Currency_t cur = { 0 };
 		if (s_parseOneCurrency(&cur, &pageData, &pageLen) == false)
@@ -434,6 +438,18 @@ bool initCurrencies(const char * pageURL, const char * currencyFilePath)
 
 	size_t webPageLen;
 	char * webPage = loadWebPageToStr(pageURL, &webPageLen);
+
+	// Add "EUR"
+	Currency_t * mem = realloc(currencyData.currencies, sizeof(Currency_t));
+	// Add EUR
+	if (mem == NULL)
+	{
+		return false;
+	}
+	currencyData.currencies = mem;
+	makeCurrency_double(currencyData.currencies, "EUR", 1.0);
+	currencyData.n_currencies = 1;
+
 
 	// If loading page was unsuccessful
 	if (webPage == NULL)
