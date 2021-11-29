@@ -85,7 +85,7 @@ void calcWndBorder();
 
 // wndProc wrapper functions
 void onPaint();
-void onCommand(WPARAM wp);
+void onCommand(WPARAM wp, LPARAM lp);
 void onSize(int newx, int newy);
 void onSizing(WPARAM wp, RECT * wndRect);
 void onDpiChange(int newdx, int newdy, RECT * wndRect);

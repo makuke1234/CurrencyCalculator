@@ -17,10 +17,7 @@ void dpi_loadFunctions()
 	{
 		return;
 	}
-	GetDpiForMonitor_W8_1 = (GDFM_W8_1)GetProcAddress(
-		shcoredll,
-		"GetDpiForMonitor"
-	);
+	GetDpiForMonitor_W8_1 = (GDFM_W8_1)GetProcAddress(shcoredll, "GetDpiForMonitor");
 
 	// Try loading 'fancy' dpi-awareness functions
 	user32dll = LoadLibraryW(L"User32.dll");

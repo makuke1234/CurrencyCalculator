@@ -232,8 +232,10 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_PAINT:
 		onPaint(hwnd);
 		break;
+	case WM_ERASEBKGND:
+		return 1;
 	case WM_COMMAND:
-		onCommand(wp);
+		onCommand(wp, lp);
 		break;
 	case WM_SIZING:
 		onSizing(wp, (RECT *)lp);
@@ -269,8 +271,20 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 void onPaint(HWND hwnd)
 {
+	RECT r;
+	GetClientRect(hwnd, &r);
+	int win_width  = r.right  - r.left;
+	int win_height = r.bottom - r.top;
+
 	PAINTSTRUCT ps;
-	HDC hdc = BeginPaint(hwnd, &ps);
+	HDC realhdc = BeginPaint(hwnd, &ps);
+	HDC hdc = CreateCompatibleDC(realhdc);
+	HBITMAP hMemBm = CreateCompatibleBitmap(realhdc, win_width, win_height);
+	SelectObject(hdc, hMemBm);
+
+	// Fill in background color
+	FillRect(hdc, &r, (HBRUSH)COLOR_WINDOW);
+
 	// Start painting
 
 	// Select font
@@ -288,22 +302,30 @@ void onPaint(HWND hwnd)
 
 
 
-	double rate = currencyData.currencies[wnd.selectCur1].etalonValue /
-	              currencyData.currencies[wnd.selectCur2].etalonValue;
-	len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s %.4f", wnd.iLabel2Str, rate);
+	double rate = currencyData.currencies[wnd.selectCur2].etalonValue /
+	              currencyData.currencies[wnd.selectCur1].etalonValue;
+	len = swprintf_s(
+		tempStr,
+		MAX_PAINT_STR,
+		L"%s %.4f",
+		wnd.iLabel2Str,
+		rate
+	);
 	tempRect = wnd.infoLabel2N;
 	dpi_adjustRectDip(&tempRect, 0, 0);
 	DrawTextW(hdc, tempStr, len, &tempRect, DT_LEFT | DT_NOCLIP);
 
 
-	tempRect = wnd.infoLabel3N;
-	dpi_adjustRectDip(&tempRect, 0, 0);
-	DrawTextW(hdc, wnd.iLabel3Str, -1, &tempRect, DT_LEFT | DT_NOCLIP);
-
-
 	if (wnd.hasValidInputValue)
 	{
-		len = swprintf_s(tempStr, MAX_PAINT_STR, L"%s %.2f", wnd.oLabelStr, rate * wnd.textInputValue);
+		len = swprintf_s(
+			tempStr,
+			MAX_PAINT_STR,
+			L"%s %.2f %s",
+			wnd.oLabelStr,
+			rate * wnd.textInputValue,
+			currencyData.currencies[wnd.selectCur2].wName
+		);
 	}
 	else
 	{
@@ -314,15 +336,38 @@ void onPaint(HWND hwnd)
 	DrawTextW(hdc, tempStr, len, &tempRect, DT_LEFT | DT_NOCLIP);
 
 	// End painting
+	BitBlt(realhdc, 0, 0, win_width, win_height, hdc, 0, 0, SRCCOPY);
+	DeleteObject(hMemBm);
+	DeleteDC(hdc);
 	EndPaint(hwnd, &ps);
 }
-void onCommand(WPARAM wp)
+static inline void updateRateDisp()
+{
+	// Redraw
+	RECT tempRect = wnd.infoLabel2N;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	RECT client;
+	GetClientRect(wnd.hwnd, &client);
+	tempRect.right = client.right;
+	InvalidateRect(wnd.hwnd, &tempRect, TRUE);
+}
+static inline void updateConvDisp()
+{
+	RECT tempRect = wnd.outLabelN;
+	dpi_adjustRectDip(&tempRect, 0, 0);
+	RECT client;
+	GetClientRect(wnd.hwnd, &client);
+	tempRect.right = client.right;
+	InvalidateRect(wnd.hwnd, &tempRect, TRUE);
+}
+
+void onCommand(WPARAM wp, LPARAM lp)
 {
 	switch (HIWORD(wp))
 	{
 	case CBN_SELCHANGE:
 	{
-		const int index = (int)SendMessageW(wnd.hwnd, CB_GETCURSEL, 0, 0);
+		const int index = (int)SendMessageW((HWND)lp, CB_GETCURSEL, 0, 0);
 		if (index == CB_ERR)
 		{
 			return;
@@ -337,14 +382,31 @@ void onCommand(WPARAM wp)
 			wnd.selectCur2 = index;
 			break;
 		}
-		// Redraw
-		InvalidateRect(wnd.hwnd, NULL, TRUE);
+		updateRateDisp();
+		updateConvDisp();
 		break;
 	}
 	case EN_CHANGE:
 		if (LOWORD(wp) == WndMenuTextInput)
 		{
-			dispErr(0);
+			// try to convert text to number
+			int lineLen = (int)SendMessageW(wnd.handles[4], EM_LINELENGTH, 0, 0) + 1;
+			wchar_t line[lineLen];
+			GetWindowTextW(wnd.handles[4], line, lineLen);
+
+			wchar_t * nextp;
+			double val = wcstod(line, &nextp);
+
+			if (nextp == line)
+			{
+				wnd.hasValidInputValue = false;
+			}
+			else
+			{
+				wnd.textInputValue = val;
+				wnd.hasValidInputValue = true;
+			}
+			updateConvDisp();
 		}
 		break;
 	}
@@ -483,7 +545,7 @@ LRESULT onCreate()
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
 		wnd.hwnd,
-		(HMENU)WndMenuDropDown_to,
+		NULL,
 		wnd.hInst,
 		NULL
 	);
@@ -500,7 +562,7 @@ LRESULT onCreate()
 		tr.right  - tr.left,
 		tr.bottom - tr.top,
 		wnd.hwnd,
-		NULL,
+		(HMENU)WndMenuDropDown_to,
 		wnd.hInst,
 		NULL
 	);
