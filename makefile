@@ -1,9 +1,14 @@
+SHELL=cmd
+
 TARGET=CurCalc
 
 BIN=bin
 SRC=src
 OBJD=objd
 OBJ=obj
+
+export C_INCLUDE_PATH=./include
+export LIBRARY_PATH=./lib
 
 
 CC=gcc
@@ -12,7 +17,7 @@ RESC=windres
 CDEBCONST=-D _DEBUG
 CCONST=-D NDEBUG
 
-CDEFFLAGS=-I"./include" -L"./lib" -municode -std=c2x -m64 -Wall -Wextra -Wpedantic -Wconversion -Wdouble-promotion -Wshadow -Wfree-nonheap-object -Wcast-align -Wunused -Wsign-conversion -Wmisleading-indentation -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wformat=2
+CDEFFLAGS=-municode -std=c2x -m64 -Wall -Wextra -Wpedantic -Wconversion -Wdouble-promotion -Wshadow -Wfree-nonheap-object -Wcast-align -Wunused -Wsign-conversion -Wmisleading-indentation -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wformat=2
 CDEBFLAGS=-g -O0 $(CDEBCONST)
 CFLAGS=-O3 -Wl,--strip-all,--build-id=none,--gc-sections -fno-ident $(CCONST) -mwindows
 LIB=-lgdi32 -lcurl

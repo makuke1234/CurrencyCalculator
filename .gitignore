@@ -5,3 +5,5 @@ deb*
 *.html
 /test
 *.txt
+/*.exe
+currencies.txt
